@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Simple Todo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f9f9f9;
+    }
+
+    p {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    /* 1. This container controls the layout row for your INPUTS */
+    .input-row {
+      display: flex;
+      gap: 15px;            /* Adds a clean gap between inputs */
+      margin-bottom: 20px;  /* Spacing between inputs and tasks list */
+    }
+
+    .js-input, .js-date {
+      border: 1px solid #767676;
+      border-radius: 5px;
+      height: 35px;
+      width: 180px;         /* Explicit width so the calendar icon stays visible */
+      padding: 0 10px;
+      box-sizing: border-box;
+      font-size: 15px;
+    }
+
+    .js-btn, .js-del {
+      height: 35px;
+      width: 90px;
+      border-radius: 5px;
+      border: 1px solid black;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .js-btn {
+      background-color: rgb(255, 115, 0);
+      color: black;
+    }
+
+    .js-del {
+      background-color: rgba(255, 4, 0, 0.826);
+      color: white;
+    }
+
+    /* 2. This grid container handles ONLY your added task items */
+    .js-todos {
+      display: grid;
+      /* Column 1: matches Course Name width | Column 2: matches Date width | Column 3: matches Button width */
+      grid-template-columns: 180px 180px 90px; 
+      column-gap: 15px;    /* Matches the exact 'gap' of your input row! */
+      row-gap: 15px;       /* Adds space between individual tasks */
+      align-items: center;
+    }
+
+    .js-todos div {
+      font-size: 18px;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+
+  <p>Enter Course and Date</p>
+  
+  <div class="input-row">
+    <input type="text" placeholder="Course Name" class="js-input" onkeydown="addEvent(event)">
+    <input type="date" class="js-date">
+    <button class="js-btn" onclick="addTodo()">Add</button>
+  </div>
+  
+  <div class="js-todos"></div>
+
+  <script>
+
+   document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    let response = await fetch('http://localhost:3000', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    let jsonData = await response.json();
+    console.log('Data loaded from MySQL:', jsonData);
+
+    // 1. Clear the array and fill it with your real database rows
+    todoArray.length = 0; 
+    jsonData.forEach(item => {
+      todoArray.push(item);
+    });
+
+    // 2. Call your display function to instantly render them into the HTML grid
+    disTodos(); 
+
+  } catch (error) {
+    console.error("Error loading initial data:", error.message);
+  }
+});
+    // Global array to store todo items
+    const todoArray = [];
+
+    // Function to render/display the list on the screen
+    function disTodos() {
+      let todoElement = '';
+
+      for (let i = 0; i < todoArray.length; i++) {
+        const itemObject = todoArray[i];
+        const { name, dueDate } = itemObject;
+        
+        // If there's no date selected, output an empty div to maintain alignment
+        let dateDisplay = '';
+  
+  if (dueDate) {
+    // FIX: If the date contains a 'T' (it's a timestamp), split it and take only the YYYY-MM-DD part
+    if (dueDate.includes('T')) {
+      dateDisplay = dueDate.split('T')[0]; 
+    } else {
+      dateDisplay = dueDate; // Otherwise use the raw YYYY-MM-DD format from the input
+    }
+  }
+
+        // Form exactly 3 column cells for the grid
+        const html = `
+          <div>${name}</div>
+          <div>${dateDisplay}</div>
+          <button class="js-del" onclick="todoArray.splice(${i}, 1); disTodos();">Delete</button>
+        `;
+        todoElement = todoElement + html;
+      }
+
+      document.querySelector('.js-todos').innerHTML = todoElement;
+    }
+
+    // Function to handle adding a new todo item
+  function addTodo() {
+  // 1. Grab the elements from the webpage accurately
+  const inputElement = document.querySelector('.js-input');
+  const dateElement = document.querySelector('.js-date');
+ 
+  // 2. Extract their raw typed text values safely
+  const inputValue = inputElement.value.trim(); 
+  const dateValue = dateElement.value.trim();
+  
+  // 3. Emergency brake: If the user didn't type anything, stop right here
+  if (inputValue === "") {
+    console.log("Blocking add action: Course Name field is completely empty.");
+    return; 
+  }
+
+
+fetch('http://localhost:3000/add-item', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    text: inputValue, // Maps to itemDescription in backend
+    date: dateValue   // Maps to dueDate in backend
+  }) 
+})
+.then(response => response.json())
+.then(data => console.log("Backend response received:", data))
+.catch(error => console.error("Network communication error:", error));
+
+  // 5. Push the task to your local array so it renders on your screen
+  todoArray.push({
+    name: inputValue,
+    dueDate: dateValue
+  });
+
+  // 6. Clear out your input boxes on screen so they are fresh for the next entry
+  inputElement.value = ""; 
+  dateElement.value = "";  
+  
+  // 7. Refresh your visual layout list 
+  disTodos();              
+}
+    // Function to handle the 'Enter' keypress event
+    function addEvent(event) {
+      if (event.key === 'Enter') {
+        addTodo();
+      }
+    }
+  </script>
+
+</body>
+</html>
